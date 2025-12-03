@@ -49,114 +49,7 @@ GPERF 插件架构
 
 ### 核心模块说明
 
-#### 1. **comm.h** - 核心数据结构层
-定义了所有追踪事件的基础数据结构，是整个项目的基石：
-
-```cpp
-// 关键数据结构
-struct TraceEvent {
-    const char* name;                    // 事件名称
-    EventCategory category;              // 事件类别（决定Chrome Tracing中的颜色）
-    TimeSpan ts;                         // 时间跨度（纳秒精度）
-    std::optional<map_t<std::string, std::string>> args; // 可选参数
-};
-```
-
-**设计亮点**:
-- `TimeSpan` 使用纳秒精度，内部转换为 Chrome Tracing 的微秒格式
-- `const char*` 而非 `std::string` 避免不必要的字符串拷贝
-- `std::optional` 优雅处理可能有或无的参数
-
-#### 2. **tracking.cpp** - 数据收集核心
-负责从 GCC 编译器收集各种编译事件：
-
-**预处理追踪系统**:
-- 使用栈 (`std::stack`) 管理嵌套的 `#include` 关系
-- 处理循环包含边界情况 (`CIRCULAR_POISON_VALUE`)
-- 文件名规范化：绝对路径 → 相对包含路径
-- 时间戳对齐：避免事件在 Chrome Tracing 中重叠显示
-
-```cpp
-// 预处理文件栈示例
-std::stack<std::string> preprocessing_stack;
-
-// 开始处理头文件
-void start_preprocess_file(const char* file_name, cpp_reader* pfile) {
-    preprocess_start[file_name] = ns_from_start();
-    preprocessing_stack.push(file_name);
-}
-```
-
-**优化Pass追踪**:
-- 捕获 GCC 四大类优化 Pass:
-  - `GIMPLE_PASS`: 高级中间表示优化
-  - `RTL_PASS`: 寄存器传输级优化  
-  - `SIMPLE_IPA_PASS`: 简单过程间分析
-  - `IPA_PASS`: 完整过程间分析
-- 通过 `static_pass_number` 标识每个 Pass
-
-#### 3. **plugin.cpp** - GCC 插件接口
-GCC 插件框架的粘合剂，注册所有回调函数：
-
-```cpp
-// 回调函数注册顺序（按编译流程）
-int plugin_init() {
-    // 1. 编译单元开始
-    register_callback(PLUGIN_NAME, PLUGIN_START_UNIT, &cb_start_compilation);
-    
-    // 2. 声明处理完成（标记预处理结束）
-    register_callback(PLUGIN_NAME, PLUGIN_FINISH_DECL, &cb_finish_decl);
-    
-    // 3. 函数解析完成
-    register_callback(PLUGIN_NAME, PLUGIN_FINISH_PARSE_FUNCTION, &cb_finish_parse_function);
-    
-    // 4. 优化Pass执行
-    register_callback(PLUGIN_NAME, PLUGIN_PASS_EXECUTION, &cb_pass_execution);
-    
-    // 5. 编译完成（触发输出）
-    register_callback(PLUGIN_NAME, PLUGIN_FINISH, &cb_plugin_finish);
-}
-```
-
-**关键技术**:
-- Hook GCC 的 `file_change` 回调追踪 `#include`
-- 使用 `expand_location` 获取源码位置信息
-- `decl_as_string` 提取函数/类/命名空间的完整名称
-
-#### 4. **perf_output.cpp** - 输出引擎
-将收集的事件转换为 Chrome Tracing JSON 格式：
-
-```json
-{
-  "displayTimeUnit": "ns",
-  "traceEvents": [
-    {
-      "cat": "PREPROCESS",
-      "name": "iostream",
-      "pid": 6727,
-      "ts": 5602.81,
-      "tid": 0,
-      "args": {"UID": 29},
-      "ph": "B"
-    },
-    {
-      "cat": "PREPROCESS", 
-      "name": "iostream",
-      "pid": 6727,
-      "ts": 33757,
-      "tid": 0,
-      "args": {"UID": 29},
-      "ph": "E"
-    }
-  ],
-  "beginningOfTime": 1764746506379873
-}
-```
-
-**输出优化**:
-- 事件过滤：跳过短于 1ms 的事件减少噪音
-- 时间戳配对：通过 UID 确保开始/结束事件正确匹配
-- GCC 版本兼容：处理 14+ 与旧版本的 JSON API 差异
+核心模块说明可查看- [说明文档](./gcc_trace_descript.md)
 
 ## 🔧 安装与使用
 
@@ -195,6 +88,37 @@ chmod +x build-test.sh
 | **SIMPLE_IPA_PASS** | `simdclone` | 过程间分析 | 青色 |
 
 ## 🎨 可视化分析
+
+### trace.json 示例
+
+Chrome Tracing JSON 格式：
+
+```json
+{
+  "displayTimeUnit": "ns",
+  "traceEvents": [
+    {
+      "cat": "PREPROCESS",
+      "name": "iostream",
+      "pid": 6727,
+      "ts": 5602.81,
+      "tid": 0,
+      "args": {"UID": 29},
+      "ph": "B"
+    },
+    {
+      "cat": "PREPROCESS", 
+      "name": "iostream",
+      "pid": 6727,
+      "ts": 33757,
+      "tid": 0,
+      "args": {"UID": 29},
+      "ph": "E"
+    }
+  ],
+  "beginningOfTime": 1764746506379873
+}
+```
 
 ### 使用 Perfetto UI
 
@@ -378,3 +302,4 @@ gdb --args gcc -fplugin=./gperf.so source.cpp
 **提示**: 本插件专为 GCC 编译器设计，强烈依赖 GCC 内部 API。建议在生产环境中使用前进行全面测试。
 
 **性能提示**: 追踪会增加约 5-15% 的编译开销，建议在需要分析时启用。
+
