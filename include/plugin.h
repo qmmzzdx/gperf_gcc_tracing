@@ -30,8 +30,8 @@ namespace GccTrace
      *   - scope_name: 所属作用域名称（命名空间或类名，可能为空）
      *   - scope_type: 作用域类型（NAMESPACE或STRUCT）
      *
-     * @note 由cb_finish_parse_function回调调用，在tracking.cc中实现
-     * @see tracking.cc中的end_parse_function实现
+     * @note 由cb_finish_parse_function回调调用，在tracking.cpp中实现
+     * @see tracking.cpp中的end_parse_function实现
      */
     void end_parse_function(FinishedFunction info);
 
@@ -49,7 +49,7 @@ namespace GccTrace
      * 3. 时间跨度（进入和离开作用域的时间）
      *
      * @note 由write_all_events调用，在编译结束时统一输出
-     * @note 在tracking.cc中实现，遍历scope_events向量
+     * @note 在tracking.cpp中实现，遍历scope_events向量
      */
     void write_all_scopes();
 
@@ -65,7 +65,7 @@ namespace GccTrace
      * 输出格式符合Chrome Tracing标准，可用于性能可视化分析。
      *
      * @note 由write_all_events调用，在编译结束时统一输出
-     * @note 在tracking.cc中实现，遍历function_events向量
+     * @note 在tracking.cpp中实现，遍历function_events向量
      * @note 函数名称使用规范化路径，避免绝对路径导致的视觉混乱
      */
     void write_all_functions();
@@ -94,7 +94,7 @@ namespace GccTrace
  * 3. 路径规范化：将绝对路径转换为相对包含路径
  *
  * 相关文件：
- * - plugin.cc: 包含cb_finish_parse_function回调实现
- * - tracking.cc: 包含end_parse_function、write_all_functions、write_all_scopes实现
+ * - plugin.cpp: 包含cb_finish_parse_function回调实现
+ * - tracking.cpp: 包含end_parse_function、write_all_functions、write_all_scopes实现
  * - comm.h: 定义FinishedFunction数据结构
  */

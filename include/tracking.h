@@ -140,7 +140,7 @@ namespace GccTrace
  * 3. 性能优化：哈希映射快速查找、向量连续存储
  *
  * 相关文件：
- * - plugin.cc: 包含cb_file_change和cb_pass_execution回调
- * - tracking.cc: 所有接口的具体实现
+ * - plugin.cpp: 包含cb_file_change和cb_pass_execution回调
+ * - tracking.cpp: 所有接口的具体实现
  * - perf_output.h: 通过add_event函数输出JSON
  */

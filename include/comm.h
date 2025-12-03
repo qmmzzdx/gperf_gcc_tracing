@@ -19,7 +19,7 @@ namespace GccTrace // 项目核心命名空间
     // 时间系统类型定义
     using clock_t = std::chrono::high_resolution_clock;     // 高精度时钟
     using time_point_t = std::chrono::time_point<clock_t>;  // 时间点类型
-    extern time_point_t COMPILATION_START;                  // 编译开始时间（全局变量，在tracking.cc中定义）
+    extern time_point_t COMPILATION_START;                  // 编译开始时间（全局变量，在tracking.cpp中定义）
     using TimeStamp = int64_t;                              // 时间戳类型（纳秒）
 
     // ============== 核心数据结构定义 ==============

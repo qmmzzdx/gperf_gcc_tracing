@@ -54,7 +54,7 @@ namespace GccTrace
      * @brief 写入单个追踪事件
      *
      * 直接写入单个事件到输出（可能用于调试或特殊场景）。
-     * 注意：该函数在perf_output.cc中未实现，可能是预留接口或废弃函数。
+     * 注意：该函数在perf_output.cpp中未实现，可能是预留接口或废弃函数。
      *
      * @param event 要写入的追踪事件
      * @param bool 控制参数（可能表示是否立即刷新、是否格式化输出等）
@@ -73,7 +73,7 @@ namespace GccTrace
  *              ↓
  *     ┌───────┼───────┐
  *     ↓       ↓       ↓
- * plugin.h  tracking.h  perf_output.cc（实现）
+ * plugin.h  tracking.h  perf_output.cpp（实现）
  *     ↓       ↓
  * 函数/作用域  预处理/优化pass
  *
