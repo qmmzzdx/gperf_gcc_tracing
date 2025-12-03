@@ -1,13 +1,15 @@
+# gcc trace 功能模块及测试流程详细解析
+
 # **perf_output.cpp 功能原理解析**
 
-## **文件头注释（第1-3行）**
+## **文件头注释**
 ```
 // GCC性能追踪插件的JSON输出模块
 // 负责将收集到的编译事件转换为Chrome Tracing格式的JSON文件
 ```
 **功能原理**：明确模块职责——将内部事件数据转换为标准化的JSON格式，用于在Chrome Tracing等工具中可视化。
 
-## **包含头文件（第5-9行）**
+## **包含头文件**
 ```cpp
 #include "perf_output.h"     // 包含JSON输出接口声明，提供函数实现
 #include <gcc-plugin.h>      // 插件初始化、回调注册、GCC内部API
@@ -18,22 +20,22 @@
 
 ### **详细功能原理**：
 
-**第5行：`#include "perf_output.h"`**
+**`#include "perf_output.h"`**
 - **自包含实现**：确保实现文件包含对应的声明文件
 - **编译检查**：编译器会验证声明与实现的一致性
 - **依赖管理**：明确本模块依赖的接口
 
-**第6行：`#include <gcc-plugin.h>`**
+**`#include <gcc-plugin.h>`**
 - **插件上下文**：虽然输出模块不直接使用插件API，但需要GCC环境上下文
 - **内存分配器**：GCC内部可能有特殊的内存管理需求
 - **错误处理**：使用GCC统一的错误报告机制
 
-**第7行：`#include <plugin-version.h>`**
+**`#include <plugin-version.h>`**
 - **版本兼容性**：关键！GCC JSON库API在不同版本间有变化
 - **条件编译**：根据`GCCPLUGIN_VERSION_MAJOR`宏选择不同实现
 - **向后兼容**：确保插件能在多个GCC版本上工作
 
-**第8-9行：系统头文件**
+**系统头文件**
 ```cpp
 #include <sys/types.h>  // 提供pid_t类型定义
 #include <unistd.h>     // 提供getpid()系统调用
@@ -42,7 +44,7 @@
 - **文件操作**：`close()`、`write()`等底层文件操作
 - **平台特定**：确保在Unix-like系统上正常工作
 
-## **命名空间和常量定义（第11-16行）**
+## **命名空间和常量定义**
 ```cpp
 namespace GccTrace
 {
@@ -53,12 +55,12 @@ namespace GccTrace
 
 ### **详细功能原理**：
 
-**第11行：`namespace GccTrace`**
+**`namespace GccTrace`**
 - **作用域隔离**：所有输出功能都封装在GccTrace命名空间内
 - **符号管理**：避免与GCC内部或其他插件的符号冲突
 - **模块化**：清晰的代码组织结构
 
-**第14-16行：`MINIMUM_EVENT_LENGTH_NS`常量**
+**`MINIMUM_EVENT_LENGTH_NS`常量**
 ```cpp
 constexpr int MINIMUM_EVENT_LENGTH_NS = 1000000;  // 1ms
 ```
@@ -69,7 +71,7 @@ constexpr int MINIMUM_EVENT_LENGTH_NS = 1000000;  // 1ms
 - **值的选择**：1ms是经验值，足够捕获有意义的编译事件
 - **`constexpr`优势**：编译时常量，无运行时开销，可优化
 
-## **匿名命名空间（第18-86行）**
+## **匿名命名空间**
 ```cpp
 namespace // 匿名命名空间，限制符号只在当前文件可见
 {
@@ -81,12 +83,12 @@ namespace // 匿名命名空间，限制符号只在当前文件可见
 
 ### **详细功能原理**：
 
-**第18行：匿名命名空间**
+**匿名命名空间**
 - **内部实现隐藏**：JSON输出细节对外完全隐藏
 - **链接安全**：所有符号都是内部链接，不会与其他编译单元冲突
 - **封装性**：强制通过公有接口访问功能
 
-**第21-23行：全局状态变量**
+**全局状态变量**
 ```cpp
 json::object* output_json;            // JSON根对象指针
 json::array* output_events_list;      // 事件数组指针（快速访问）
@@ -117,7 +119,7 @@ static std::FILE* trace_file;         // 输出文件句柄
    - **`static`限定**：确保作用域仅限于本文件
    - **资源管理**：需要在`write_all_events()`中显式关闭
 
-## **category_string()函数（第26-40行）**
+## **category_string()函数**
 ```cpp
 const char* category_string(EventCategory cat)
 {
@@ -140,7 +142,7 @@ const char* category_string(EventCategory cat)
 
 ### **详细功能原理**：
 
-**第28行：`static const char* strings[10]`**
+**`static const char* strings[10]`**
 - **静态数组**：只初始化一次，生命周期持续到程序结束
 - **内存效率**：相比每次调用都创建数组，节省大量内存分配
 - **线程安全**：虽然单线程编译，但静态局部变量初始化是线程安全的（C++11起）
@@ -162,12 +164,12 @@ enum EventCategory {          // 数组索引
 };
 ```
 
-**第40行：`return strings[(int)cat];`**
+**`return strings[(int)cat];`**
 - **类型转换**：枚举值隐式转换为int，但显式转换更清晰
 - **数组索引**：O(1)时间复杂度，极高效
 - **边界安全**：依赖枚举值在有效范围内（0-9）
 
-## **new_event()函数（第43-86行）**
+## **new_event()函数**
 ```cpp
 json::object* new_event(const TraceEvent& event, int pid, int tid, TimeStamp ts,
     const char* phase, int this_uid)
@@ -201,14 +203,14 @@ json::object* new_event(const TraceEvent& event, int pid, int tid, TimeStamp ts,
 
 ### **函数实现详细功能原理**：
 
-**第46-47行：创建JSON对象**
+**创建JSON对象**
 ```cpp
 json::object* json_event = new json::object;
 ```
 - **手动分配**：GCC JSON库使用new/delete管理内存
 - **对象创建**：每个事件对应一个JSON对象
 
-**第50-52行：设置基本属性**
+**设置基本属性**
 ```cpp
 json_event->set("name", new json::string(event.name));
 json_event->set("ph", new json::string(phase));
@@ -218,7 +220,7 @@ json_event->set("cat", new json::string(category_string(event.category)));
 - **字符串包装**：所有字符串值都需要包装为`json::string`对象
 - **内存管理**：每个值都是独立分配的对象
 
-**第55-57行：时间戳转换**
+**时间戳转换**
 ```cpp
 json_event->set("ts",
     new json::float_number(static_cast<double>(ts) * 0.001L));
@@ -230,7 +232,7 @@ json_event->set("ts",
 4. **精度保证**：使用`long double`进行乘法，避免精度损失
 5. **类型转换**：`static_cast<double>`确保浮点数运算
 
-**第60-61行：进程和线程标识**
+**进程和线程标识**
 ```cpp
 json_event->set("pid", new json::integer_number(pid));
 json_event->set("tid", new json::integer_number(tid));
@@ -238,7 +240,7 @@ json_event->set("tid", new json::integer_number(tid));
 - **整数类型**：使用`json::integer_number`而非`json::float_number`
 - **必要性**：虽然线程ID固定为0，但Chrome Tracing要求必须有这个字段
 
-**第64-65行：创建参数对象**
+**创建参数对象**
 ```cpp
 json::object* args = new json::object();
 args->set("UID", new json::integer_number(this_uid));
@@ -248,7 +250,7 @@ args->set("UID", new json::integer_number(this_uid));
 - **配对机制**：Chrome Tracing通过UID关联开始和结束
 - **递增分配**：简单但有效的唯一ID生成策略
 
-**第68-74行：额外参数处理**
+**额外参数处理**
 ```cpp
 if (event.args)
 {
@@ -264,7 +266,7 @@ if (event.args)
 3. **参数复制**：所有参数值都复制到JSON对象中
 4. **示例**：函数事件有`{"file": "test.cpp"}`参数
 
-**第77-78行：附加参数并返回**
+**附加参数并返回**
 ```cpp
 json_event->set("args", args);
 return json_event;
@@ -272,7 +274,7 @@ return json_event;
 - **参数附加**：args对象作为整体附加到事件
 - **所有权转移**：json_event现在负责管理args的内存
 
-## **init_output_file()函数（第90-113行）**
+## **init_output_file()函数**
 ```cpp
 void init_output_file(FILE* file)
 {
@@ -302,18 +304,18 @@ void init_output_file(FILE* file)
 
 ### **详细功能原理**：
 
-**第92行：`trace_file = file;`**
+**`trace_file = file;`**
 - **文件句柄保存**：从`setup_output()`传递过来的已打开文件
 - **后续使用**：在`write_all_events()`中写入和关闭
 
-**第95行：创建JSON根对象**
+**创建JSON根对象**
 ```cpp
 output_json = new json::object();
 ```
 - **文档根**：整个JSON文档的顶层对象
 - **内存分配**：需要最后在`write_all_events()`中delete
 
-**第98行：设置时间单位**
+**设置时间单位**
 ```cpp
 output_json->set("displayTimeUnit", new json::string("ns"));
 ```
@@ -322,7 +324,7 @@ output_json->set("displayTimeUnit", new json::string("ns"));
 - **注意**：实际存储的是微秒，但显示时可以按纳秒解释
 - **用户体验**：让用户看到更精确的时间数字
 
-**第101-108行：设置时间原点**
+**设置时间原点**
 ```cpp
 output_json->set("beginningOfTime",
     new json::integer_number(
@@ -351,14 +353,14 @@ output_json->set("beginningOfTime",
 - **多文件关联**：如果同时追踪多个编译，可以对齐时间线
 - **调试信息**：知道编译发生的具体时间
 
-**第111行：创建事件数组**
+**创建事件数组**
 ```cpp
 output_json->set("traceEvents", new json::array());
 ```
 - **标准字段**：Chrome Tracing要求事件存储在`traceEvents`数组中
 - **数组容器**：所有事件按顺序添加到这个数组
 
-**第113行：获取数组指针**
+**获取数组指针**
 ```cpp
 output_events_list = (json::array*)output_json->get("traceEvents");
 ```
@@ -368,7 +370,7 @@ output_events_list = (json::array*)output_json->get("traceEvents");
 3. **性能优化**：保存指针避免每次添加事件时的查找开销
 4. **缓存机制**：只需在初始化时获取一次
 
-## **add_event()函数（第115-138行）**
+## **add_event()函数**
 ```cpp
 void add_event(const TraceEvent& event)
 {
@@ -396,7 +398,7 @@ void add_event(const TraceEvent& event)
 
 ### **详细功能原理**：
 
-**第117-119行：静态变量**
+**静态变量**
 ```cpp
 static int pid = getpid();
 static int tid = 0;
@@ -408,7 +410,7 @@ static int UID = 0;
 3. **线程ID**：GCC单线程编译，固定为0
 4. **UID计数器**：从0开始递增，确保唯一性
 
-**第122-126行：事件长度过滤**
+**事件长度过滤**
 ```cpp
 if ((event.ts.end - event.ts.start) < MINIMUM_EVENT_LENGTH_NS)
 {
@@ -421,7 +423,7 @@ if ((event.ts.end - event.ts.start) < MINIMUM_EVENT_LENGTH_NS)
 - **提前返回**：不满足条件直接返回，避免后续处理开销
 - **优化效果**：可能过滤掉80%以上的微事件
 
-**第129行：UID分配**
+**UID分配**
 ```cpp
 int this_uid = UID++;
 ```
@@ -430,7 +432,7 @@ int this_uid = UID++;
 - **递增性**：确保每个事件对的UID不同
 - **范围**：从0开始，理论上支持4,294,967,296个事件
 
-**第132-137行：生成JSON记录**
+**生成JSON记录**
 ```cpp
 output_events_list->append(
     new_event(event, pid, tid, event.ts.start, "B", this_uid));
@@ -454,7 +456,7 @@ output_events_list->append(
 - 由`output_events_list`管理生命周期
 - 最终在`write_all_events()`中统一释放
 
-## **write_all_events()函数（第140-172行）**
+## **write_all_events()函数**
 ```cpp
 void write_all_events()
 {
@@ -487,7 +489,7 @@ void write_all_events()
 
 ### **详细功能原理**：
 
-**第142-143行：添加TU事件**
+**添加TU事件**
 ```cpp
 add_event(TraceEvent{"TU", EventCategory::TU, {0, ns_from_start()}, std::nullopt});
 ```
@@ -497,7 +499,7 @@ add_event(TraceEvent{"TU", EventCategory::TU, {0, ns_from_start()}, std::nullopt
 3. **无参数**：`std::nullopt`表示没有额外参数
 4. **总览作用**：提供整个编译过程的总时间
 
-**第146-149行：按顺序写入事件**
+**按顺序写入事件**
 ```cpp
 write_preprocessing_events();  // 1. 预处理事件
 write_opt_pass_events();       // 2. 优化pass事件
@@ -509,7 +511,7 @@ write_all_scopes();            // 4. 作用域事件
 2. **逻辑分组**：同类事件集中在一起便于分析
 3. **依赖关系**：某些模块的写入函数会调用`add_event()`
 
-**第152-160行：序列化JSON（版本兼容）**
+**序列化JSON（版本兼容）**
 ```cpp
 #if GCCPLUGIN_VERSION_MAJOR >= 14
     // GCC 14及以上版本：支持格式化参数
@@ -543,7 +545,7 @@ output_json->dump(trace_file);  // 默认可能格式化
 - **宏定义**：`GCCPLUGIN_VERSION_MAJOR`由GCC提供
 - **向后兼容**：确保插件在老版本GCC上也能工作
 
-**第163行：关闭文件**
+**关闭文件**
 ```cpp
 fclose(trace_file);
 ```
@@ -552,7 +554,7 @@ fclose(trace_file);
 2. **释放资源**：操作系统文件描述符
 3. **错误处理**：忽略可能的错误（编译已结束）
 
-**第166-168行：清理内存**
+**清理内存**
 ```cpp
 output_events_list = nullptr;
 delete output_json;
@@ -623,16 +625,16 @@ output_json (object)
 
 # **plugin.cpp 功能原理解析**
 
-## **文件头注释（第1-3行）**
+## **文件头注释**
 ```
 // GCC性能追踪插件的主入口模块
 // 负责插件初始化、回调函数注册和GCC事件处理
 ```
 **功能原理**：这是整个插件的**中枢系统**，连接GCC编译器和追踪逻辑。负责在GCC编译流程的关键节点插入钩子（hooks），捕获编译事件。
 
-## **包含头文件系统（第5-12行）**
+## **包含头文件系统**
 
-### **5-7行：项目内部头文件**
+### **项目内部头文件**
 ```cpp
 #include "plugin.h"             // 包含插件接口声明，提供回调函数的实现
 ```
@@ -641,7 +643,7 @@ output_json (object)
 - **声明-实现分离**：确保头文件中声明的函数在这里实现
 - **编译检查**：编译器会验证函数签名的一致性
 
-### **8-12行：GCC内部头文件系统**
+### **GCC内部头文件系统**
 ```cpp
 #include <options.h>            // GCC编译选项处理和解析
 #include <tree-check.h>         // GCC树节点验证和调试工具
@@ -654,20 +656,20 @@ output_json (object)
 
 **详细功能原理分析**：
 
-**第8行：`<options.h>`**
+**`<options.h>`**
 ```cpp
 // 提供GCC命令行选项解析机制
 // 虽然本插件未直接使用，但可能需要理解GCC选项上下文
 ```
 
-**第9行：`<tree-check.h>`**
+**`<tree-check.h>`**
 ```cpp
 // 提供DEBUG_TREE宏和树节点验证函数
 // 原理：GCC的树节点有复杂的内部结构，需要验证工具
 // 用途：调试时确保tree节点的有效性
 ```
 
-**第10行：`<tree-pass.h>`**
+**`<tree-pass.h>`**
 ```cpp
 // 核心结构：struct opt_pass
 // 功能原理：
@@ -683,7 +685,7 @@ struct opt_pass {
 };
 ```
 
-**第11行：`<tree.h>`**
+**`<tree.h>`**
 ```cpp
 // GCC抽象语法树（AST）核心头文件
 // 功能原理：
@@ -696,7 +698,7 @@ TREE_CODE(tree)      // 获取节点类型代码
 DECL_CONTEXT(tree)   // 获取声明上下文（作用域）
 ```
 
-**第12行：`<cp/cp-tree.h>`**
+**`<cp/cp-tree.h>`**
 ```cpp
 // C++特定的树节点类型扩展
 // 功能原理：
@@ -709,14 +711,14 @@ RECORD_TYPE       // 结构体/类类型
 UNION_TYPE        // 联合体类型
 ```
 
-**第13行：`"c-family/c-pragma.h"`**
+**`"c-family/c-pragma.h"`**
 ```cpp
 // 处理#pragma预处理指令
 // 功能原理：虽然本插件不处理#pragma，但GCC可能需要这个头文件
 // 用于GCC内部一致性检查
 ```
 
-**第14行：`"cpplib.h"`**
+**`"cpplib.h"`**
 ```cpp
 // C++预处理库核心头文件
 // 功能原理：
@@ -734,7 +736,7 @@ struct line_map_ordinary {
 };
 ```
 
-## **GPL兼容性声明（第17行）**
+## **GPL兼容性声明**
 ```cpp
 int plugin_is_GPL_compatible = 1;
 ```
@@ -761,7 +763,7 @@ extern "C" int plugin_is_GPL_compatible;
 // 这是GCC插件的安全机制
 ```
 
-## **命名空间（第19行）**
+## **命名空间**
 ```cpp
 namespace GccTrace
 {
@@ -774,7 +776,7 @@ namespace GccTrace
 
 ## **GCC回调函数实现**
 
-### **3.1 cb_finish_parse_function函数（第23-79行）**
+### **cb_finish_parse_function函数**
 
 ```cpp
 void cb_finish_parse_function(void* gcc_data, void* user_data)
@@ -788,7 +790,7 @@ void cb_finish_parse_function(void* gcc_data, void* user_data)
 // 返回: void - 所有GCC回调都返回void
 ```
 
-**第25行：类型转换**
+**类型转换**
 ```cpp
 tree decl = (tree)gcc_data;
 ```
@@ -797,7 +799,7 @@ tree decl = (tree)gcc_data;
 - **类型擦除**：GCC回调使用void*保持通用性
 - **安全转换**：信任GCC传入的是合法的tree节点
 
-**第28行：获取源代码位置**
+**获取源代码位置**
 ```cpp
 auto expanded_location = expand_location(decl->decl_minimal.locus);
 ```
@@ -818,7 +820,7 @@ struct expanded_location {
 };
 ```
 
-**第31行：获取函数名称**
+**获取函数名称**
 ```cpp
 auto decl_name = decl_as_string(decl, 0);
 ```
@@ -835,7 +837,7 @@ auto decl_name = decl_as_string(decl, 0);
 // 注意：包含命名空间、类名，但不包含返回类型
 ```
 
-**第34行：获取父作用域**
+**获取父作用域**
 ```cpp
 auto parent_decl = DECL_CONTEXT(decl);
 ```
@@ -852,7 +854,7 @@ auto parent_decl = DECL_CONTEXT(decl);
 // 4. NULL - 无上下文
 ```
 
-**第37-38行：初始化作用域信息**
+**初始化作用域信息**
 ```cpp
 const char* scope_name = nullptr;
 GccTrace::EventCategory scope_type = GccTrace::EventCategory::UNKNOWN;
@@ -862,7 +864,7 @@ GccTrace::EventCategory scope_type = GccTrace::EventCategory::UNKNOWN;
 - **类型安全**：使用枚举而非整数表示类型
 - **UNKNOWN初始值**：防止未初始化错误
 
-**第41-68行：作用域信息提取**
+**作用域信息提取**
 ```cpp
 if (parent_decl)
 {
@@ -912,7 +914,7 @@ UNION_TYPE = 7,              // 联合体类型
 3. **UNION_TYPE** → **STRUCT**：联合体也归类为结构类型
 4. **default分支**：未知类型输出警告，帮助调试
 
-**第71-78行：传递函数信息**
+**传递函数信息**
 ```cpp
 end_parse_function(FinishedFunction{
     gcc_data,                // GCC树节点指针（保持原始类型）
@@ -939,7 +941,7 @@ FinishedFunction{
 // 数据流转：GCC回调 → FinishedFunction → tracking.cpp处理
 ```
 
-### **3.2 cb_plugin_finish函数（第82-85行）**
+### **cb_plugin_finish函数**
 ```cpp
 void cb_plugin_finish(void* gcc_data, void* user_data)
 {
@@ -967,7 +969,7 @@ write_all_events() 执行
 7. 清理内存
 ```
 
-### **3.3 old_file_change_cb函数指针（第88行）**
+### **old_file_change_cb函数指针**
 ```cpp
 void (*old_file_change_cb)(cpp_reader*, const line_map_ordinary*);
 ```
@@ -994,9 +996,9 @@ cpp_cbs->file_change = &cb_file_change;
 // 在cb_file_change()中：(*old_file_change_cb)(...);
 ```
 
-### **3.4 cb_file_change函数（第91-123行）**
+### **cb_file_change函数**
 
-**第93-96行：检查新映射**
+**检查新映射**
 ```cpp
 if (new_map)
 {
@@ -1007,7 +1009,7 @@ if (new_map)
 - **ORINARY_MAP_FILE_NAME宏**：从line_map_ordinary获取文件名
 - **可能为空**：某些文件（如命令行）没有文件名
 
-**第98-114行：根据变更原因处理**
+**根据变更原因处理**
 ```cpp
 if (file_name)
 {
@@ -1041,7 +1043,7 @@ enum lc_reason {
 // reason字段表示为什么创建这个映射
 ```
 
-**第119行：调用原始回调**
+**调用原始回调**
 ```cpp
 (*old_file_change_cb)(pfile, new_map);
 ```
@@ -1058,9 +1060,9 @@ enum lc_reason {
 // 理论上不会，但安全起见应该检查
 ```
 
-### **3.5 cb_start_compilation函数（第126-138行）**
+### **cb_start_compilation函数**
 
-**第129行：开始主文件预处理**
+**开始主文件预处理**
 ```cpp
 start_preprocess_file(main_input_filename, nullptr);
 ```
@@ -1077,7 +1079,7 @@ extern const char *main_input_filename;
 4. pfile=nullptr：主文件没有包含路径信息
 ```
 
-**第132-137行：Hook预处理回调**
+**Hook预处理回调**
 ```cpp
 cpp_callbacks* cpp_cbs = cpp_get_callbacks(parse_in);
 old_file_change_cb = cpp_cbs->file_change;
@@ -1106,7 +1108,7 @@ struct cpp_reader {
 - **替代方案**：在插件初始化时替换（可能错过早期事件）
 - **安全性**：保存原始指针，避免内存泄漏
 
-### **3.6 cb_pass_execution函数（第141-147行）**
+### **cb_pass_execution函数**
 ```cpp
 void cb_pass_execution(void* gcc_data, void* user_data)
 {
@@ -1144,7 +1146,7 @@ start_opt_pass(pass2) // 自动结束pass1，开始pass2
 ...重复直到所有pass完成
 ```
 
-### **3.7 cb_finish_decl函数（第150-153行）**
+### **cb_finish_decl函数**
 ```cpp
 void cb_finish_decl(void* gcc_data, void* user_data)
 {
@@ -1165,9 +1167,9 @@ void cb_finish_decl(void* gcc_data, void* user_data)
 // finish_preprocessing_stage()会清理所有未关闭文件
 ```
 
-## **插件全局函数（第158行开始）**
+## **插件全局函数**
 
-### **PLUGIN_NAME常量（第159行）**
+### **PLUGIN_NAME常量**
 ```cpp
 static const char* PLUGIN_NAME = "gperf";
 ```
@@ -1182,9 +1184,9 @@ static const char* PLUGIN_NAME = "gperf";
 // 在命令行中使用：-fplugin=libgperf.so
 ```
 
-### **setup_output函数（第163-227行）**
+### **setup_output函数**
 
-**第166-167行：参数名称定义**
+**参数名称定义**
 ```cpp
 const char* flag_name = "trace";
 const char* dir_flag_name = "trace-dir";
@@ -1205,7 +1207,7 @@ plugin_argument argv[] = {
 // "trace-dir": 指定输出目录，自动生成文件名
 ```
 
-**第172行：文件句柄初始化**
+**文件句柄初始化**
 ```cpp
 FILE* trace_file = nullptr;
 ```
@@ -1216,7 +1218,7 @@ FILE* trace_file = nullptr;
 // 现代C++推荐使用nullptr
 ```
 
-**第176-189行：情况1-无参数**
+**情况1-无参数**
 ```cpp
 if (argc == 0)
 {
@@ -1243,7 +1245,7 @@ if (argc == 0)
 // 安全性：避免临时文件冲突
 ```
 
-**第190-200行：情况2-直接指定文件**
+**情况2-直接指定文件**
 ```cpp
 else if (argc == 1 && !strcmp(argv[0].key, flag_name))
 {
@@ -1267,7 +1269,7 @@ else if (argc == 1 && !strcmp(argv[0].key, flag_name))
 // 注意：fopen不设置errno，perror()可能不准确
 ```
 
-**第201-213行：情况3-指定目录**
+**情况3-指定目录**
 ```cpp
 else if (argc == 1 && !strcmp(argv[0].key, dir_flag_name))
 {
@@ -1290,7 +1292,7 @@ else if (argc == 1 && !strcmp(argv[0].key, dir_flag_name))
 // 改进建议：可添加mkdir()创建目录
 ```
 
-**第214-224行：情况4-参数错误**
+**情况4-参数错误**
 ```cpp
 else
 {
@@ -1312,7 +1314,7 @@ else
 // 设计考虑：清晰、具体、可操作的错误信息
 ```
 
-**第226-232行：初始化输出**
+**初始化输出**
 ```cpp
 if (trace_file)
 {
@@ -1340,9 +1342,9 @@ init_output_file(trace_file)
 返回true，插件继续初始化
 ```
 
-### **plugin_init函数（第236-284行）**
+### **plugin_init函数**
 
-**第239-241行：插件信息结构**
+**插件信息结构**
 ```cpp
 static struct plugin_info gcc_trace_info = {
     .version = "V1.0",
@@ -1363,7 +1365,7 @@ struct plugin_info {
 2. help: 用户可通过gcc --help=plugin查看插件信息
 ```
 
-**第244行：记录编译开始时间**
+**记录编译开始时间**
 ```cpp
 GccTrace::COMPILATION_START = GccTrace::clock_t::now();
 ```
@@ -1379,7 +1381,7 @@ GccTrace::COMPILATION_START = GccTrace::clock_t::now();
 // 3. 便于多个编译过程的时间对齐
 ```
 
-**第247-250行：设置输出系统**
+**设置输出系统**
 ```cpp
 if (!setup_output(plugin_info->argc, plugin_info->argv))
 {
@@ -1396,7 +1398,7 @@ if (!setup_output(plugin_info->argc, plugin_info->argv))
 // 如果输出系统失败，插件无法正常工作，应该完全禁用
 ```
 
-**第253-281行：回调函数注册**
+**回调函数注册**
 
 **register_callback函数原理**：
 ```cpp
@@ -1459,7 +1461,7 @@ if (!setup_output(plugin_info->argc, plugin_info->argv))
 // 作用：触发最终输出和清理
 ```
 
-**第283行：返回成功**
+**返回成功**
 ```cpp
 return 0;  // 插件初始化成功
 ```
@@ -1509,16 +1511,16 @@ cb_plugin_finish()        // 编译完成
 
 # **tracking.cpp 功能原理解析**
 
-## **文件头注释（第1-3行）**
+## **文件头注释**
 ```
 // GCC性能追踪的数据管理模块
 // 负责编译事件的数据收集、处理和存储
 ```
 **功能原理**：这是插件的**核心数据引擎**，负责收集、处理和存储所有编译事件数据。它是插件回调系统和输出系统之间的桥梁。
 
-## **包含头文件系统（第5-15行）**
+## **包含头文件系统**
 
-### **第5行：GCC插件API**
+### **GCC插件API**
 ```cpp
 #include <gcc-plugin.h>          // GCC插件框架核心头文件（提供插件API）
 ```
@@ -1527,7 +1529,7 @@ cb_plugin_finish()        // 编译完成
 - **宏定义**：提供GCC内部宏和常量定义
 - **内存管理**：GCC内部可能使用特定的内存分配器
 
-### **第7-9行：C++标准库容器**
+### **C++标准库容器**
 ```cpp
 #include <stack>                 // 标准库：栈容器（用于预处理文件包含栈管理）
 #include <string>                // 标准库：字符串（存储文件名、作用域名等）
@@ -1571,7 +1573,7 @@ std::vector<ScopeEvent> scope_events;      // 作用域事件
 std::vector<FunctionEvent> function_events; // 函数事件
 ```
 
-### **第11-15行：GCC内部头文件**
+### **GCC内部头文件**
 ```cpp
 #include "c-family/c-pragma.h"   // GCC预处理指令支持（#pragma处理）
 #include "cpplib.h"              // GCC C++预处理库（cpp_reader等预处理状态机）
@@ -1579,32 +1581,32 @@ std::vector<FunctionEvent> function_events; // 函数事件
 #include <tree-pass.h>           // GCC优化pass定义（opt_pass结构体和类型枚举）
 ```
 
-**第11行：`c-family/c-pragma.h`**
+**`c-family/c-pragma.h`**
 ```cpp
 // 虽然不是直接处理#pragma，但包含可能需要的类型定义
 // GCC内部头文件之间有复杂的依赖关系
 ```
 
-**第12行：`cpplib.h`**
+**`cpplib.h`**
 ```cpp
 // 关键结构：cpp_reader、line_map_ordinary
 // 提供预处理器的完整状态信息
 // 用于文件包含追踪和路径解析
 ```
 
-**第13行：`tracking.h`**
+**`tracking.h`**
 ```cpp
 // 自包含声明：确保实现与声明一致
 // 包含本模块所有公共接口的声明
 ```
 
-**第14行：`<tree-pass.h>`**
+**`<tree-pass.h>`**
 ```cpp
 // 提供opt_pass结构定义和优化pass类型枚举
 // 关键枚举：opt_pass_type（GIMPLE_PASS, RTL_PASS等）
 ```
 
-## **命名空间和全局变量（第17-21行）**
+## **命名空间和全局变量**
 ```cpp
 namespace GccTrace
 {
@@ -1624,7 +1626,7 @@ namespace GccTrace
 // 3. 可见性：所有内部函数都需要访问这个时间基准
 ```
 
-## **匿名命名空间（第23-133行）**
+## **匿名命名空间**
 ```cpp
 namespace // 匿名命名空间，限制符号只在当前文件可见
 ```
@@ -1633,9 +1635,9 @@ namespace // 匿名命名空间，限制符号只在当前文件可见
 - **链接安全**：避免与其他编译单元的符号冲突
 - **访问控制**：强制通过公共接口访问数据
 
-## **预处理追踪数据结构（第26-33行）**
+## **预处理追踪数据结构**
 
-### **第27-28行：时间记录映射**
+### **时间记录映射**
 ```cpp
 map_t<std::string, int64_t> preprocess_start;  // 文件 -> 开始时间（纳秒）
 map_t<std::string, int64_t> preprocess_end;    // 文件 -> 结束时间（纳秒）
@@ -1658,7 +1660,7 @@ map_t<std::string, int64_t> preprocess_end;    // 文件 -> 结束时间（纳�
 // 值类型：int64_t（纳秒时间戳）
 ```
 
-### **第31行：预处理文件栈**
+### **预处理文件栈**
 ```cpp
 std::stack<std::string> preprocessing_stack;
 ```
@@ -1688,7 +1690,7 @@ std::stack<std::string> preprocessing_stack;
 栈: []
 ```
 
-### **第34行：循环包含毒丸值**
+### **循环包含毒丸值**
 ```cpp
 const char* CIRCULAR_POISON_VALUE = "CIRCULAR_POISON_VALUE";
 ```
@@ -1710,7 +1712,7 @@ const char* CIRCULAR_POISON_VALUE = "CIRCULAR_POISON_VALUE";
 // 保持数据结构一致性
 ```
 
-### **第37行：函数时间戳基准**
+### **函数时间戳基准**
 ```cpp
 TimeStamp last_function_parsed_ts = 0;
 ```
@@ -1728,9 +1730,9 @@ now + 3                      // 函数结束时间+3ns
 // 在Chrome Tracing中正确显示为独立事件
 ```
 
-## **优化pass追踪数据结构（第40-46行）**
+## **优化pass追踪数据结构**
 
-### **第41-44行：OptPassEvent结构**
+### **OptPassEvent结构**
 ```cpp
 struct OptPassEvent
 {
@@ -1757,7 +1759,7 @@ struct opt_pass {
 // 4. 通过指针访问原始pass信息（名称、类型、编号）
 ```
 
-### **第46行：pass事件存储**
+### **pass事件存储**
 ```cpp
 OptPassEvent last_pass;                  // 当前正在执行的pass
 std::vector<OptPassEvent> pass_events;   // 所有pass的历史记录
@@ -1780,7 +1782,7 @@ std::vector<OptPassEvent> pass_events;   // 所有pass的历史记录
 // 最终需要按顺序输出所有pass事件
 ```
 
-## **文件名规范化系统（第49-107行）**
+## **文件名规范化系统**
 
 ### **设计目标**：
 ```
@@ -1793,7 +1795,7 @@ std::vector<OptPassEvent> pass_events;   // 所有pass的历史记录
 规范化: src/utils.h
 ```
 
-### **第52-56行：映射数据结构**
+### **映射数据结构**
 ```cpp
 map_t<std::string, std::string> file_to_include_directory;
 map_t<std::string, std::string> normalized_files_map;
@@ -1835,9 +1837,9 @@ set_t<std::string> conflicted_files;
 //       都规范化成"src/main.cpp" → 冲突！
 ```
 
-### **第59-91行：register_include_location函数**
+### **register_include_location函数**
 
-**第61-62行：检查是否已注册**
+**检查是否已注册**
 ```cpp
 if (!file_to_include_directory.contains(file_name))
 ```
@@ -1851,7 +1853,7 @@ if (file_to_include_directory.find(file_name) !=
 // 实现可能是：return find(key) != end();
 ```
 
-**第63-65行：存储包含关系**
+**存储包含关系**
 ```cpp
 std::string file_std = file_name;
 file_to_include_directory[file_name] = dir_name;
@@ -1866,7 +1868,7 @@ auto& folder_std = file_to_include_directory[file_std];
 std::string& folder_std = file_to_include_directory[file_std];
 ```
 
-**第68行：starts_with检查**
+**starts_with检查**
 ```cpp
 if (file_std.starts_with(folder_std))
 ```
@@ -1879,7 +1881,7 @@ if (file_std.substr(0, folder_std.size()) == folder_std)
 // 实现：memcmp或SSE指令优化
 ```
 
-**第71-72行：计算相对路径**
+**计算相对路径**
 ```cpp
 auto normalized_file = file_std.substr(folder_std.size() + 1);
 ```
@@ -1895,12 +1897,12 @@ folder_std.size() = 13
 substr(14) = "stdio.h"
 ```
 
-**第74-75行：存储映射**
+**存储映射**
 ```cpp
 normalized_files_map[file_std] = normalized_file;
 ```
 
-**第77-84行：冲突检测**
+**冲突检测**
 ```cpp
 if (normalized_files.contains(normalized_file))
 {
@@ -1921,7 +1923,7 @@ else
 // 3. 冲突文件使用原始路径显示
 ```
 
-**第86-90行：路径异常处理**
+**路径异常处理**
 ```cpp
 else
 {
@@ -1936,9 +1938,9 @@ else
 // 3. GCC预处理器的路径计算错误
 ```
 
-### **第94-107行：normalized_file_name函数**
+### **normalized_file_name函数**
 
-**第96-104行：无冲突返回相对路径**
+**无冲突返回相对路径**
 ```cpp
 if (normalized_files_map.contains(file_name) &&
     !conflicted_files.contains(normalized_files_map[file_name]))
@@ -1955,7 +1957,7 @@ if (normalized_files_map.contains(file_name) &&
 4. 返回：data()获取C风格字符串
 ```
 
-**第105-107行：冲突或未注册返回原始路径**
+**冲突或未注册返回原始路径**
 ```cpp
 else
 {
@@ -1968,9 +1970,9 @@ else
 - **信息保留**：原始路径包含完整信息
 - **用户友好**：冲突时可能在日志中警告
 
-### **第109-122行：pass_type函数**
+### **pass_type函数**
 
-**第111-121行：类型转换switch**
+**类型转换switch**
 ```cpp
 switch (type)
 {
@@ -2014,15 +2016,15 @@ switch (type)
 // 典型pass：全程序优化、跨模块内联
 ```
 
-**第122行：默认返回UNKNOWN**
+**默认返回UNKNOWN**
 ```cpp
 return UNKNOWN;
 ```
 **防御性编程**：处理未知pass类型，避免崩溃
 
-## **函数和作用域事件存储（第125-133行）**
+## **函数和作用域事件存储**
 
-### **第126-130行：ScopeEvent结构**
+### **ScopeEvent结构**
 ```cpp
 struct ScopeEvent
 {
@@ -2050,7 +2052,7 @@ namespace ns1 {
 ]
 ```
 
-### **第132-133行：FunctionEvent结构**
+### **FunctionEvent结构**
 ```cpp
 struct FunctionEvent
 {
@@ -2072,11 +2074,11 @@ std::vector<FunctionEvent> function_events;
 // 实际存储在expanded_location.file中，生命周期足够
 ```
 
-## **公共接口实现（第137-323行）**
+## **公共接口实现**
 
-### **第139-146行：finish_preprocessing_stage函数**
+### **finish_preprocessing_stage函数**
 
-**第141-145行：循环清理栈**
+**循环清理栈**
 ```cpp
 while (!preprocessing_stack.empty())
 {
@@ -2095,15 +2097,15 @@ while (!preprocessing_stack.empty())
 // 处理嵌套包含未正常关闭的情况
 ```
 
-**第145行：更新时间戳基准**
+**更新时间戳基准**
 ```cpp
 last_function_parsed_ts = ns_from_start();
 ```
 **目的**：确保后续函数事件从当前时间开始，避免时间重叠
 
-### **第149-204行：start_preprocess_file函数**
+### **start_preprocess_file函数**
 
-**第151行：获取当前时间**
+**获取当前时间**
 ```cpp
 auto now = ns_from_start();
 ```
@@ -2120,7 +2122,7 @@ inline TimeStamp ns_from_start()
 // 返回相对于编译开始的纳秒数
 ```
 
-**第154-157行：过滤特殊文件名**
+**过滤特殊文件名**
 ```cpp
 if (!file_name || !strcmp(file_name, "<command-line>"))
 {
@@ -2135,7 +2137,7 @@ if (!file_name || !strcmp(file_name, "<command-line>"))
 // 示例：gcc -DDEBUG=1 会创建<command-line>虚拟文件
 ```
 
-**第160-166行：循环包含检测**
+**循环包含检测**
 ```cpp
 if (preprocess_start.contains(file_name) &&
     !preprocess_end.contains(file_name))
@@ -2155,7 +2157,7 @@ if (preprocess_start.contains(file_name) &&
 // 处理：替换为毒丸值，清空pfile（不需要路径信息）
 ```
 
-**第169-172行：记录开始时间**
+**记录开始时间**
 ```cpp
 if (!preprocess_start.contains(file_name))
 {
@@ -2170,13 +2172,13 @@ if (!preprocess_start.contains(file_name))
 // 后续包含视为同一处理过程
 ```
 
-**第175行：压栈**
+**压栈**
 ```cpp
 preprocessing_stack.push(file_name);
 ```
 **栈状态更新**：表示开始处理新文件
 
-**第178-203行：路径规范化处理**
+**路径规范化处理**
 ```cpp
 if (pfile)
 {
@@ -2217,14 +2219,14 @@ cpp_reader → cpp_buffer → cpp_file → cpp_dir
 // 内存管理：返回malloc分配的内存，需要free
 ```
 
-### **第207-220行：end_preprocess_file函数**
+### **end_preprocess_file函数**
 
-**第209行：获取当前时间**
+**获取当前时间**
 ```cpp
 auto now = ns_from_start();
 ```
 
-**第212-215行：记录结束时间**
+**记录结束时间**
 ```cpp
 if (!preprocess_end.contains(preprocessing_stack.top()))
 {
@@ -2239,27 +2241,27 @@ if (!preprocess_end.contains(preprocessing_stack.top()))
 // 保持与开始时间的对称性
 ```
 
-**第218行：弹出栈顶**
+**弹出栈顶**
 ```cpp
 preprocessing_stack.pop();
 ```
 **栈状态更新**：表示完成当前文件处理
 
-**第220行：更新时间戳基准**
+**更新时间戳基准**
 ```cpp
 last_function_parsed_ts = now + 3;
 ```
 **+3纳秒原理**：为下一个函数事件留出时间间隔，避免重叠
 
-### **第223-240行：write_preprocessing_events函数**
+### **write_preprocessing_events函数**
 
-**第226行：安全结束预处理**
+**安全结束预处理**
 ```cpp
 finish_preprocessing_stage();
 ```
 **防御性编程**：确保所有文件都正确结束
 
-**第229-239行：遍历所有预处理文件**
+**遍历所有预处理文件**
 ```cpp
 for (const auto& [file, start] : preprocess_start)
 {
@@ -2298,14 +2300,14 @@ for (const auto& [file, start] : preprocess_start)
 // 但异常情况可能导致缺失，at()提供明确错误
 ```
 
-### **第243-262行：start_opt_pass函数**
+### **start_opt_pass函数**
 
-**第245行：获取当前时间**
+**获取当前时间**
 ```cpp
 auto now = ns_from_start();
 ```
 
-**第248-253行：结束上一个pass**
+**结束上一个pass**
 ```cpp
 last_pass.ts.end = now;
 if (last_pass.pass)
@@ -2324,7 +2326,7 @@ if (last_pass.pass)
 // 跳过emplace_back，避免空pass记录
 ```
 
-**第256-257行：开始新pass**
+**开始新pass**
 ```cpp
 last_pass.pass = pass;
 last_pass.ts.start = now + 1;
@@ -2337,9 +2339,9 @@ last_pass.ts.start = now + 1;
 // +1ns创建微小间隙，保持事件独立性
 ```
 
-### **第265-278行：write_opt_pass_events函数**
+### **write_opt_pass_events函数**
 
-**第267-277行：遍历所有pass事件**
+**遍历所有pass事件**
 ```cpp
 for (const auto& event : pass_events)
 {
@@ -2373,9 +2375,9 @@ for (const auto& event : pass_events)
 // 避免不必要的拷贝
 ```
 
-### **第281-317行：end_parse_function函数**
+### **end_parse_function函数**
 
-**第283行：静态状态变量**
+**静态状态变量**
 ```cpp
 static bool did_last_function_have_scope = false;
 ```
@@ -2386,12 +2388,12 @@ static bool did_last_function_have_scope = false;
 // 用途：在多次调用间保持状态
 ```
 
-**第285行：获取当前时间**
+**获取当前时间**
 ```cpp
 TimeStamp now = ns_from_start();
 ```
 
-**第290-291行：计算时间跨度**
+**计算时间跨度**
 ```cpp
 TimeSpan ts{last_function_parsed_ts + 3, now};
 last_function_parsed_ts = now;
@@ -2404,7 +2406,7 @@ last_function_parsed_ts = now;
 // 微小偏移确保在Chrome Tracing中显示为独立事件
 ```
 
-**第294行：存储函数事件**
+**存储函数事件**
 ```cpp
 function_events.emplace_back(info.name, info.file_name, ts);
 ```
@@ -2420,14 +2422,14 @@ function_events.emplace_back(info.name, info.file_name, ts);
 // 区别：emplace_back直接构造，避免临时对象
 ```
 
-**第297-316行：作用域事件处理**
+**作用域事件处理**
 
-**第299行：检查是否有作用域**
+**检查是否有作用域**
 ```cpp
 if (info.scope_name)
 ```
 
-**第301-308行：扩展现有作用域**
+**扩展现有作用域**
 ```cpp
 if (!scope_events.empty() && did_last_function_have_scope &&
     scope_events.back().name == info.scope_name)
@@ -2450,7 +2452,7 @@ class A {
 }
 ```
 
-**第309-314行：创建新作用域**
+**创建新作用域**
 ```cpp
 else
 {
@@ -2471,7 +2473,7 @@ else
 // 视觉上：作用域条包含函数条
 ```
 
-**第315-316行：更新状态**
+**更新状态**
 ```cpp
 did_last_function_have_scope = true;
 }
@@ -2487,9 +2489,9 @@ else
 // 用于判断是否合并连续的作用域事件
 ```
 
-### **第320-330行：write_all_scopes函数**
+### **write_all_scopes函数**
 
-**第322-329行：遍历作用域事件**
+**遍历作用域事件**
 ```cpp
 for (const auto& [name, type, ts] : scope_events)
 {
@@ -2509,9 +2511,9 @@ for (const auto& [name, type, ts] : scope_events)
 // 保持JSON文件中事件分组清晰
 ```
 
-### **第333-347行：write_all_functions函数**
+### **write_all_functions函数**
 
-**第335-346行：遍历函数事件**
+**遍历函数事件**
 ```cpp
 for (const auto& [name, file_name, ts] : function_events)
 {
@@ -2609,7 +2611,7 @@ plugin.cpp → tracking.cpp → perf_output.cpp
 ### 2.1 初始化阶段（插件加载）
 
 ```cpp
-// plugin.cpp 第244行
+// plugin.cpp
 GccTrace::COMPILATION_START = GccTrace::clock_t::now();
 ```
 
@@ -2634,10 +2636,10 @@ GccTrace::COMPILATION_START = GccTrace::clock_t::now();
 #### 2.2.1 文件包含栈管理
 
 ```cpp
-// tracking.cpp 第31行
+// tracking.cpp
 std::stack<std::string> preprocessing_stack;
 
-// plugin.cpp 第98-114行
+// plugin.cpp
 void cb_file_change(cpp_reader* pfile, const line_map_ordinary* new_map)
 {
     switch (new_map->reason)
@@ -2666,7 +2668,7 @@ void cb_file_change(cpp_reader* pfile, const line_map_ordinary* new_map)
 #### 2.2.2 路径规范化系统
 
 ```cpp
-// tracking.cpp 第178-203行
+// tracking.cpp
 auto real_dir_name = realpath(dir->name, nullptr);
 auto real_file_name = realpath(file_name, nullptr);
 register_include_location(real_file_name, real_dir_name);
@@ -2688,7 +2690,7 @@ register_include_location(real_file_name, real_dir_name);
 #### 2.3.1 函数信息提取流程
 
 ```cpp
-// plugin.cpp 第25-78行
+// plugin.cpp
 void cb_finish_parse_function(void* gcc_data, void* user_data)
 {
     tree decl = (tree)gcc_data;
@@ -2711,7 +2713,7 @@ void cb_finish_parse_function(void* gcc_data, void* user_data)
 #### 2.3.2 时间戳防重叠机制
 
 ```cpp
-// tracking.cpp 第290-291行
+// tracking.cpp
 TimeSpan ts{last_function_parsed_ts + 3, now};
 last_function_parsed_ts = now;
 ```
@@ -2726,7 +2728,7 @@ last_function_parsed_ts = now;
 #### 2.4.1 Pass执行追踪机制
 
 ```cpp
-// plugin.cpp 第141-147行
+// plugin.cpp
 void cb_pass_execution(void* gcc_data, void* user_data)
 {
     auto pass = (opt_pass*)gcc_data;
@@ -2743,7 +2745,7 @@ void cb_pass_execution(void* gcc_data, void* user_data)
 #### 2.4.2 Pass事件记录策略
 
 ```cpp
-// tracking.cpp 第243-262行
+// tracking.cpp
 void start_opt_pass(const opt_pass* pass)
 {
     // 1. 结束上一个pass
@@ -2761,7 +2763,7 @@ void start_opt_pass(const opt_pass* pass)
 #### 2.5.1 四层数据结构体系
 
 ```cpp
-// tracking.cpp 第26-133行
+// tracking.cpp
 // 1. 预处理时间映射
 map_t<std::string, int64_t> preprocess_start;  // 文件 -> 开始时间
 map_t<std::string, int64_t> preprocess_end;    // 文件 -> 结束时间
@@ -2779,7 +2781,7 @@ std::vector<ScopeEvent> scope_events;
 #### 2.5.2 作用域合并算法
 
 ```cpp
-// tracking.cpp 第301-308行
+// tracking.cpp
 if (!scope_events.empty() && did_last_function_have_scope &&
     scope_events.back().name == info.scope_name)
 {
@@ -2809,7 +2811,7 @@ class MyClass {
 #### 2.6.1 事件过滤策略
 
 ```cpp
-// perf_output.cpp 第122-126行
+// perf_output.cpp
 if ((event.ts.end - event.ts.start) < MINIMUM_EVENT_LENGTH_NS)
 {
     return;  // 跳过短于1ms的事件
@@ -2824,7 +2826,7 @@ if ((event.ts.end - event.ts.start) < MINIMUM_EVENT_LENGTH_NS)
 #### 2.6.2 Chrome Tracing格式生成
 
 ```cpp
-// perf_output.cpp 第132-137行
+// perf_output.cpp
 output_events_list->append(
     new_event(event, pid, tid, event.ts.start, "B", this_uid));  // 开始事件
 output_events_list->append(
@@ -2839,7 +2841,7 @@ output_events_list->append(
 #### 2.6.3 时间戳转换
 
 ```cpp
-// perf_output.cpp 第55-57行
+// perf_output.cpp
 json_event->set("ts", new json::float_number(
     static_cast<double>(ts) * 0.001L));  // 纳秒 → 微秒
 ```
@@ -2853,7 +2855,7 @@ json_event->set("ts", new json::float_number(
 #### 2.6.4 版本兼容性处理
 
 ```cpp
-// perf_output.cpp 第152-160行
+// perf_output.cpp
 #if GCCPLUGIN_VERSION_MAJOR >= 14
     output_json->dump(trace_file, /*formatted=*/false);
 #else
@@ -2947,7 +2949,7 @@ Lambda类型追踪:
 ### 3.1 循环包含检测算法
 
 ```cpp
-// tracking.cpp 第160-166行
+// tracking.cpp
 if (preprocess_start.contains(file_name) &&
     !preprocess_end.contains(file_name))
 {
@@ -2965,7 +2967,7 @@ if (preprocess_start.contains(file_name) &&
 ### 3.2 文件名冲突检测
 
 ```cpp
-// tracking.cpp 第77-84行
+// tracking.cpp
 if (normalized_files.contains(normalized_file))
 {
     conflicted_files.insert(normalized_file);  // 标记冲突
