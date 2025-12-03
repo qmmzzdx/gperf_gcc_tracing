@@ -2880,7 +2880,7 @@ json_event->set("ts", new json::float_number(
 #define TEST_CLASS_HIERARCHY     1  // 触发类和作用域追踪
 #define TEST_TEMPLATES           1  // 测试模板实例化性能
 #define TEST_CONSTEXPR           1  // 编译期计算追踪
-#define TEST_LAMBDAS            1   // Lambda表达式追踪
+#define TEST_LAMBDAS             1  // Lambda表达式追踪
 ```
 
 #### 2.7.2 各测试模块的追踪效果
