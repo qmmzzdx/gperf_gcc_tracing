@@ -49,7 +49,7 @@ GPERF 插件架构
 
 ### 核心模块说明
 
-核心模块说明可查看- [说明文档](./gcc_trace_descript.md)
+核心模块说明可查看[gcc_trace_descript.md](./gcc_trace_descript.md)
 
 ## 🔧 安装与使用
 
@@ -302,4 +302,5 @@ gdb --args gcc -fplugin=./gperf.so source.cpp
 **提示**: 本插件专为 GCC 编译器设计，强烈依赖 GCC 内部 API。建议在生产环境中使用前进行全面测试。
 
 **性能提示**: 追踪会增加约 5-15% 的编译开销，建议在需要分析时启用。
+
 
